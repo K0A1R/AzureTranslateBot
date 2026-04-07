@@ -28,3 +28,5 @@ AI-Powered translation web app using:
 2. Install frontend dependencies
    cd frontend
    npm install
+
+## .env with key and endpoint is in backend folder
