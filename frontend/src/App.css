@@ -50,3 +50,12 @@ label {
 p {
   white-space: pre-wrap;
 }
+
+.status-message {
+  margin-top: 15px;
+  font-weight: bold;
+}
+
+.inline-result {
+  margin-top: 20px;
+}
