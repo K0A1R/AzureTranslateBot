@@ -9,6 +9,7 @@ function App() {
   const [extractedText, setExtractedText] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
 
   const API_BASE_URL =
     process.env.REACT_APP_API_BASE_URL || "http://localhost:5000";
@@ -21,19 +22,47 @@ function App() {
 
     try {
       setLoading(true);
+      setStatusMessage("Translating...");
       setExtractedText("");
       setTranslatedText("");
 
-      const response = await axios.post(`${API_BASE_URL}/api/translate`, {
+      console.log("Sending translate request...", {
+        url: `${API_BASE_URL}/api/translate`,
         text,
         targetLang,
       });
 
-      setTranslatedText(response.data.translatedText || "");
-      setText("");
+      const response = await axios.post(
+        `${API_BASE_URL}/api/translate`,
+        {
+          text,
+          targetLang,
+        },
+        {
+          timeout: 15000,
+        }
+      );
+
+      console.log("Translate response:", response.data);
+
+      const result = response.data.translatedText || "";
+
+      if (!result) {
+        setStatusMessage("Request completed, but no translated text was returned.");
+        return;
+      }
+
+      setTranslatedText(result);
+      setStatusMessage("Translation completed.");
     } catch (error) {
       console.error("Translate error:", error);
-      alert("Translation failed.");
+      console.error("Response data:", error.response?.data);
+      const message =
+        error.response?.data?.error ||
+        error.message ||
+        "Translation failed.";
+      setStatusMessage(message);
+      alert(message);
     } finally {
       setLoading(false);
     }
@@ -47,6 +76,7 @@ function App() {
 
     try {
       setLoading(true);
+      setStatusMessage("Processing OCR...");
       setExtractedText("");
       setTranslatedText("");
 
@@ -54,22 +84,33 @@ function App() {
       formData.append("image", selectedFile);
       formData.append("targetLang", targetLang);
 
-      const response = await axios.post(
-        `${API_BASE_URL}/api/ocr`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+      console.log("Sending OCR request...", {
+        url: `${API_BASE_URL}/api/ocr`,
+        fileName: selectedFile.name,
+        targetLang,
+      });
+
+      const response = await axios.post(`${API_BASE_URL}/api/ocr`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        timeout: 15000,
+      });
+
+      console.log("OCR response:", response.data);
 
       setExtractedText(response.data.extractedText || "");
       setTranslatedText(response.data.translatedText || "");
-      setSelectedFile(null);
+      setStatusMessage("OCR request completed.");
     } catch (error) {
       console.error("OCR error:", error);
-      alert("OCR translation failed.");
+      console.error("Response data:", error.response?.data);
+      const message =
+        error.response?.data?.error ||
+        error.message ||
+        "OCR translation failed.";
+      setStatusMessage(message);
+      alert(message);
     } finally {
       setLoading(false);
     }
@@ -105,6 +146,17 @@ function App() {
         <button onClick={handleTranslate} disabled={loading}>
           {loading ? "Processing..." : "Translate Text"}
         </button>
+
+        {statusMessage && (
+          <p className="status-message">{statusMessage}</p>
+        )}
+
+        {translatedText && (
+          <div className="result-card inline-result">
+            <h3>Translated Text</h3>
+            <p>{translatedText}</p>
+          </div>
+        )}
       </div>
 
       <div className="card">
@@ -116,26 +168,17 @@ function App() {
           onChange={(e) => setSelectedFile(e.target.files[0])}
         />
 
-        {selectedFile && <p>Selected: {selectedFile.name}</p>}
-
         <button onClick={handleOCRTranslate} disabled={loading}>
           {loading ? "Processing..." : "Upload Image and Translate"}
         </button>
+
+        {extractedText && (
+          <div className="result-card inline-result">
+            <h3>Extracted Text</h3>
+            <p>{extractedText}</p>
+          </div>
+        )}
       </div>
-
-      {extractedText && (
-        <div className="result-card">
-          <h3>Extracted Text</h3>
-          <p>{extractedText}</p>
-        </div>
-      )}
-
-      {translatedText && (
-        <div className="result-card">
-          <h3>Translated Text</h3>
-          <p>{translatedText}</p>
-        </div>
-      )}
     </div>
   );
 }
