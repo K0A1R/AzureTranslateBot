@@ -1,16 +1,28 @@
 {
   "name": "backend",
   "version": "1.0.0",
+<<<<<<< HEAD
   "description": "Azure TranslateBot backend",
   "main": "index.js",
   "type": "commonjs",
+=======
+  "description": "",
+  "main": "index.js",
+>>>>>>> 532aef98654fd8befdd779389b6853325a193108
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js"
   },
+<<<<<<< HEAD
   "engines": {
     "node": ">=20"
   },
+=======
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+>>>>>>> 532aef98654fd8befdd779389b6853325a193108
   "dependencies": {
     "@azure-rest/ai-translation-text": "^1.0.1",
     "cors": "^2.8.6",

@@ -23,4 +23,8 @@ Thumbs.db
 
 # Logs
 *.log
+<<<<<<< HEAD
 npm-debug.log*
+=======
+npm-debug.log*
+>>>>>>> 532aef98654fd8befdd779389b6853325a193108

@@ -40,7 +40,11 @@ function App() {
         },
         {
           timeout: 15000,
+<<<<<<< HEAD
         },
+=======
+        }
+>>>>>>> 532aef98654fd8befdd779389b6853325a193108
       );
 
       console.log("Translate response:", response.data);
@@ -48,9 +52,13 @@ function App() {
       const result = response.data.translatedText || "";
 
       if (!result) {
+<<<<<<< HEAD
         setStatusMessage(
           "Request completed, but no translated text was returned.",
         );
+=======
+        setStatusMessage("Request completed, but no translated text was returned.");
+>>>>>>> 532aef98654fd8befdd779389b6853325a193108
         return;
       }
 
@@ -60,7 +68,13 @@ function App() {
       console.error("Translate error:", error);
       console.error("Response data:", error.response?.data);
       const message =
+<<<<<<< HEAD
         error.response?.data?.error || error.message || "Translation failed.";
+=======
+        error.response?.data?.error ||
+        error.message ||
+        "Translation failed.";
+>>>>>>> 532aef98654fd8befdd779389b6853325a193108
       setStatusMessage(message);
       alert(message);
     } finally {
@@ -147,7 +161,13 @@ function App() {
           {loading ? "Processing..." : "Translate Text"}
         </button>
 
+<<<<<<< HEAD
         {statusMessage && <p className="status-message">{statusMessage}</p>}
+=======
+        {statusMessage && (
+          <p className="status-message">{statusMessage}</p>
+        )}
+>>>>>>> 532aef98654fd8befdd779389b6853325a193108
 
         {translatedText && (
           <div className="result-card inline-result">
