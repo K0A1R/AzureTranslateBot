@@ -1,29 +1,39 @@
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
+const multer = require("multer");
 const TextTranslationClient =
   require("@azure-rest/ai-translation-text").default;
+// const {
+//   ImageAnalysisClient,
+//   AzureKeyCredential,
+//   VisualFeatures,
+// } = require("@azure/ai-vision-image-analysis");
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const upload = multer({ storage: multer.memoryStorage() });
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Test Route
 app.get("/api/test", (req, res) => {
   res.json({ status: "OK", message: "Server is running" });
 });
 
-// Translator route (AMRIT)
 app.post("/api/translate", async (req, res) => {
   try {
     const { text, targetLang, sourceLang } = req.body;
 
-    // Validate input
+    console.log("Incoming translate request:", { text, targetLang, sourceLang });
+    console.log("Translator config:", {
+      endpoint: process.env.AZURE_TRANSLATOR_ENDPOINT,
+      region: process.env.AZURE_TRANSLATOR_REGION,
+      hasKey: !!process.env.AZURE_TRANSLATOR_KEY,
+    });
+
     if (!text || !targetLang) {
       return res.status(400).json({
         success: false,
@@ -31,7 +41,6 @@ app.post("/api/translate", async (req, res) => {
       });
     }
 
-    // Set up Azure Translator credentials
     const translateCredential = {
       key: process.env.AZURE_TRANSLATOR_KEY,
       region: process.env.AZURE_TRANSLATOR_REGION,
@@ -39,16 +48,14 @@ app.post("/api/translate", async (req, res) => {
 
     const translationClient = new TextTranslationClient(
       process.env.AZURE_TRANSLATOR_ENDPOINT,
-      translateCredential,
+      translateCredential
     );
 
-    // Prepare translation request
-    const inputText = [{ text: text }];
+    const inputText = [{ text }];
     const queryParams = {
       to: targetLang,
     };
 
-    // Add source language if provided
     if (sourceLang) {
       queryParams.from = sourceLang;
     }
@@ -58,7 +65,8 @@ app.post("/api/translate", async (req, res) => {
       queryParameters: queryParams,
     });
 
-    // Extract translated text from response
+    console.log("Raw translate response:", translateResponse.body);
+
     const translations = translateResponse.body;
     let translatedText = "";
 
@@ -66,15 +74,25 @@ app.post("/api/translate", async (req, res) => {
       translatedText = translations[0].translations[0].text;
     }
 
+    if (!translatedText) {
+      return res.status(500).json({
+        success: false,
+        error: "Translation service returned no translated text.",
+      });
+    }
+
     res.json({
       success: true,
       originalText: text,
-      translatedText: translatedText,
+      translatedText,
       sourceLanguage: sourceLang || "auto-detected",
       targetLanguage: targetLang,
     });
   } catch (error) {
-    console.error("Translation error:", error);
+    console.error(
+      "Translation error:",
+      error.response?.body || error.response?.data || error.message || error
+    );
     res.status(500).json({
       success: false,
       error: "Translation failed. Please try again.",
@@ -82,12 +100,13 @@ app.post("/api/translate", async (req, res) => {
   }
 });
 
-// OCR route - REPLACE with actual OCR implementation (PETER)
 app.post("/api/ocr", (req, res) => {
-  res.json({ success: true, message: "Test OCR API" });
+  res.status(501).json({
+    success: false,
+    error: "OCR route not ready yet.",
+  });
 });
 
-// Start server
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
