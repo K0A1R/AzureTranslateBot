@@ -2,19 +2,9 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const multer = require("multer");
-<<<<<<< HEAD
 const path = require("path");
 const TextTranslationClient =
   require("@azure-rest/ai-translation-text").default;
-=======
-const TextTranslationClient =
-  require("@azure-rest/ai-translation-text").default;
-// const {
-//   ImageAnalysisClient,
-//   AzureKeyCredential,
-//   VisualFeatures,
-// } = require("@azure/ai-vision-image-analysis");
->>>>>>> 532aef98654fd8befdd779389b6853325a193108
 
 dotenv.config();
 
@@ -33,16 +23,6 @@ app.post("/api/translate", async (req, res) => {
   try {
     const { text, targetLang, sourceLang } = req.body;
 
-<<<<<<< HEAD
-=======
-    console.log("Incoming translate request:", { text, targetLang, sourceLang });
-    console.log("Translator config:", {
-      endpoint: process.env.AZURE_TRANSLATOR_ENDPOINT,
-      region: process.env.AZURE_TRANSLATOR_REGION,
-      hasKey: !!process.env.AZURE_TRANSLATOR_KEY,
-    });
-
->>>>>>> 532aef98654fd8befdd779389b6853325a193108
     if (!text || !targetLang) {
       return res.status(400).json({
         success: false,
@@ -57,21 +37,11 @@ app.post("/api/translate", async (req, res) => {
 
     const translationClient = new TextTranslationClient(
       process.env.AZURE_TRANSLATOR_ENDPOINT,
-<<<<<<< HEAD
       translateCredential,
     );
 
     const inputText = [{ text }];
     const queryParams = { to: targetLang };
-=======
-      translateCredential
-    );
-
-    const inputText = [{ text }];
-    const queryParams = {
-      to: targetLang,
-    };
->>>>>>> 532aef98654fd8befdd779389b6853325a193108
 
     if (sourceLang) {
       queryParams.from = sourceLang;
@@ -82,11 +52,6 @@ app.post("/api/translate", async (req, res) => {
       queryParameters: queryParams,
     });
 
-<<<<<<< HEAD
-=======
-    console.log("Raw translate response:", translateResponse.body);
-
->>>>>>> 532aef98654fd8befdd779389b6853325a193108
     const translations = translateResponse.body;
     let translatedText = "";
 
@@ -111,11 +76,7 @@ app.post("/api/translate", async (req, res) => {
   } catch (error) {
     console.error(
       "Translation error:",
-<<<<<<< HEAD
       error.response?.body || error.response?.data || error.message || error,
-=======
-      error.response?.body || error.response?.data || error.message || error
->>>>>>> 532aef98654fd8befdd779389b6853325a193108
     );
     res.status(500).json({
       success: false,
@@ -131,15 +92,12 @@ app.post("/api/ocr", (req, res) => {
   });
 });
 
-<<<<<<< HEAD
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/*splat", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-=======
->>>>>>> 532aef98654fd8befdd779389b6853325a193108
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
