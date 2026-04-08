@@ -1,17 +1,17 @@
 # Dependencies
 node_modules/
-package-lock.json
-yarn.lock
 
 # Environment variables
 .env
 .env.local
 .env.production
+frontend/.env
+backend/.env
 
 # Build outputs
 /dist
 /build
-/frontend/build
+frontend/build
 
 # IDE files
 .vscode/
@@ -24,7 +24,3 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
-
-# React build
-/frontend/build
-/frontend/node_modules
