@@ -5,6 +5,8 @@ const multer = require("multer");
 const path = require("path");
 const TextTranslationClient =
   require("@azure-rest/ai-translation-text").default;
+const createImageAnalysisClient =
+  require("@azure-rest/ai-vision-image-analysis").default;
 
 dotenv.config();
 
@@ -85,11 +87,48 @@ app.post("/api/translate", async (req, res) => {
   }
 });
 
-app.post("/api/ocr", (req, res) => {
-  res.status(501).json({
-    success: false,
-    error: "OCR route not ready yet.",
-  });
+
+app.post("/api/ocr", upload.single("image"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, error: "No image uploaded." });
+
+    const targetLang = req.body.targetLang || "es";
+    const visionClient = createImageAnalysisClient(process.env.AZURE_VISION_ENDPOINT, { key: process.env.AZURE_VISION_KEY });
+
+    const analyzeResponse = await visionClient.path("/imageanalysis:analyze").post({
+      body: req.file.buffer,
+      contentType: "application/octet-stream",
+      queryParameters: { features: ["read"], "api-version": "2023-10-01" },
+    });
+
+    const result = analyzeResponse.body;
+    let extractedText = "";
+    if (result.readResult && result.readResult.blocks) {
+      extractedText = result.readResult.blocks.flatMap(block => block.lines).map(line => line.text).join(" ");
+    } else if (result.content) {
+      extractedText = result.content;
+    }
+
+    if (!extractedText || extractedText.trim().length === 0) {
+      return res.status(400).json({ success: false, error: "No text detected." });
+    }
+
+    const translateCredential = { key: process.env.AZURE_TRANSLATOR_KEY, region: process.env.AZURE_TRANSLATOR_REGION };
+    const translationClient = new TextTranslationClient(process.env.AZURE_TRANSLATOR_ENDPOINT, translateCredential);
+
+    const translateResponse = await translationClient.path("/translate").post({
+      body: [{ text: extractedText }],
+      queryParameters: { to: targetLang },
+    });
+
+    const translations = translateResponse.body;
+    let translatedText = (translations && translations[0]) ? translations[0].translations[0].text : "";
+
+    res.json({ success: true, extractedText, translatedText });
+  } catch (error) {
+    console.error("Pipeline Error:", error.message);
+    res.status(500).json({ success: false, error: "OCR translation failed." });
+  }
 });
 
 app.use(express.static(path.join(__dirname, "public")));
