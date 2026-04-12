@@ -1,167 +1,204 @@
-import React, { useState } from "react";
-import axios from "axios";
-import "./App.css";
+const express = require("express");
+const cors = require("cors");
+const dotenv = require("dotenv");
+const multer = require("multer");
+const path = require("path");
+const TextTranslationClient =
+  require("@azure-rest/ai-translation-text").default;
+const createImageAnalysisClient =
+  require("@azure-rest/ai-vision-image-analysis").default;
 
-function App() {
-  const [text, setText] = useState("");
-  const [targetLang, setTargetLang] = useState("es");
-  const [translatedText, setTranslatedText] = useState("");
-  const [extractedText, setExtractedText] = useState("");
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [statusMessage, setStatusMessage] = useState("");
+dotenv.config();
 
-  const API_BASE_URL = "";
+const app = express();
+const PORT = process.env.PORT || 5000;
+const upload = multer({ storage: multer.memoryStorage() });
 
-  const handleTranslate = async () => {
-    if (!text.trim()) {
-      alert("Please enter text to translate.");
-      return;
+app.use(cors());
+app.use(express.json());
+
+app.get("/api/test", (req, res) => {
+  res.json({ status: "OK", message: "Server is running" });
+});
+
+app.post("/api/translate", async (req, res) => {
+  try {
+    const { text, targetLang, sourceLang } = req.body;
+
+    if (!text || !targetLang) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing required fields: text and targetLang",
+      });
     }
 
-    try {
-      setLoading(true);
-      setStatusMessage("Translating...");
-      setExtractedText("");
-      setTranslatedText("");
+    const translateCredential = {
+      key: process.env.AZURE_TRANSLATOR_KEY,
+      region: process.env.AZURE_TRANSLATOR_REGION,
+    };
 
-      const response = await axios.post(
-        `${API_BASE_URL}/api/translate`,
-        {
-          text,
-          targetLang,
-        },
-        {
-          timeout: 15000,
-        },
-      );
+    const translationClient = new TextTranslationClient(
+      process.env.AZURE_TRANSLATOR_ENDPOINT,
+      translateCredential,
+    );
 
-      const result = response.data.translatedText || "";
+    const inputText = [{ text }];
+    const queryParams = { to: targetLang };
 
-      if (!result) {
-        setStatusMessage(
-          "Request completed, but no translated text was returned.",
-        );
-        return;
-      }
-
-      setTranslatedText(result);
-      setStatusMessage("Translation completed.");
-    } catch (error) {
-      console.error("Translate error:", error);
-      console.error("Response data:", error.response?.data);
-      const message =
-        error.response?.data?.error || error.message || "Translation failed.";
-      setStatusMessage(message);
-      alert(message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleOCRTranslate = async () => {
-    if (!selectedFile) {
-      alert("Please choose an image first.");
-      return;
+    if (sourceLang) {
+      queryParams.from = sourceLang;
     }
 
-    try {
-      setLoading(true);
-      setStatusMessage("Processing OCR...");
-      setExtractedText("");
-      setTranslatedText("");
+    const translateResponse = await translationClient.path("/translate").post({
+      body: inputText,
+      queryParameters: queryParams,
+    });
 
-      const formData = new FormData();
-      formData.append("image", selectedFile);
-      formData.append("targetLang", targetLang);
+    const translations = translateResponse.body;
+    let translatedText = "";
 
-      const response = await axios.post(`${API_BASE_URL}/api/ocr`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
+    if (
+      translations &&
+      translations[0] &&
+      translations[0].translations &&
+      translations[0].translations[0]
+    ) {
+      translatedText = translations[0].translations[0].text;
+    }
+
+    if (!translatedText) {
+      return res.status(400).json({
+        success: false,
+        error: "Translation service returned no translated text.",
+      });
+    }
+
+    res.json({
+      success: true,
+      originalText: text,
+      translatedText,
+      sourceLanguage: sourceLang || "auto-detected",
+      targetLanguage: targetLang,
+    });
+  } catch (error) {
+    console.error(
+      "Translation error:",
+      error.response?.body || error.response?.data || error.message || error,
+    );
+    res.status(500).json({
+      success: false,
+      error: "Translation failed. Please try again.",
+    });
+  }
+});
+
+app.post("/api/ocr", upload.single("image"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: "No image uploaded.",
+      });
+    }
+
+    const targetLang = req.body.targetLang || "es";
+
+    const visionClient = createImageAnalysisClient(
+      process.env.AZURE_VISION_ENDPOINT,
+      { key: process.env.AZURE_VISION_KEY },
+    );
+
+    const analyzeResponse = await visionClient
+      .path("/imageanalysis:analyze")
+      .post({
+        body: req.file.buffer,
+        contentType: "application/octet-stream",
+        queryParameters: {
+          features: ["read"],
+          "api-version": "2023-10-01",
         },
-        timeout: 15000,
       });
 
-      setExtractedText(response.data.extractedText || "");
-      setTranslatedText(response.data.translatedText || "");
-      setStatusMessage("OCR request completed.");
-    } catch (error) {
-      console.error("OCR error:", error);
-      console.error("Response data:", error.response?.data);
-      const message =
-        error.response?.data?.error ||
-        error.message ||
-        "OCR translation failed.";
-      setStatusMessage(message);
-      alert(message);
-    } finally {
-      setLoading(false);
+    const result = analyzeResponse.body;
+    let extractedText = "";
+
+    if (result.readResult && result.readResult.blocks) {
+      extractedText = result.readResult.blocks
+        .flatMap((block) => block.lines || [])
+        .map((line) => line.text)
+        .join(" ");
+    } else if (result.content) {
+      extractedText = result.content;
     }
-  };
 
-  return (
-    <div className="app">
-      <h1>Azure TranslateBot</h1>
+    if (!extractedText || extractedText.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "No text detected.",
+      });
+    }
 
-      <div className="card">
-        <h2>Text Translation</h2>
+    console.log("Extracted OCR text:", extractedText);
 
-        <textarea
-          rows="5"
-          placeholder="Enter text here..."
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-        />
+    const translateCredential = {
+      key: process.env.AZURE_TRANSLATOR_KEY,
+      region: process.env.AZURE_TRANSLATOR_REGION,
+    };
 
-        <label>Select Target Language</label>
-        <select
-          value={targetLang}
-          onChange={(e) => setTargetLang(e.target.value)}
-        >
-          <option value="es">Spanish</option>
-          <option value="fr">French</option>
-          <option value="de">German</option>
-          <option value="ar">Arabic</option>
-          <option value="ur">Urdu</option>
-          <option value="ja">Japanese</option>
-        </select>
+    const translationClient = new TextTranslationClient(
+      process.env.AZURE_TRANSLATOR_ENDPOINT,
+      translateCredential,
+    );
 
-        <button onClick={handleTranslate} disabled={loading}>
-          {loading ? "Processing..." : "Translate Text"}
-        </button>
+    const translateResponse = await translationClient.path("/translate").post({
+      body: [{ text: extractedText }],
+      queryParameters: { to: targetLang },
+    });
 
-        {statusMessage && <p className="status-message">{statusMessage}</p>}
+    console.log("OCR translate response:", translateResponse.body);
 
-        {translatedText && (
-          <div className="result-card inline-result">
-            <h3>Translated Text</h3>
-            <p>{translatedText}</p>
-          </div>
-        )}
-      </div>
+    const translations = translateResponse.body;
+    let translatedText = "";
 
-      <div className="card">
-        <h2>OCR Translation</h2>
+    if (
+      translations &&
+      translations[0] &&
+      translations[0].translations &&
+      translations[0].translations[0]
+    ) {
+      translatedText = translations[0].translations[0].text;
+    }
 
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => setSelectedFile(e.target.files[0])}
-        />
+    if (!translatedText) {
+      return res.status(500).json({
+        success: false,
+        error: "OCR text was extracted, but translation returned no text.",
+      });
+    }
 
-        <button onClick={handleOCRTranslate} disabled={loading}>
-          {loading ? "Processing..." : "Upload Image and Translate"}
-        </button>
+    res.json({
+      success: true,
+      extractedText,
+      translatedText,
+    });
+  } catch (error) {
+    console.error(
+      "Pipeline Error:",
+      error.response?.body || error.response?.data || error.message || error,
+    );
+    res.status(500).json({
+      success: false,
+      error: "OCR translation failed.",
+    });
+  }
+});
 
-        {extractedText && (
-          <div className="result-card inline-result">
-            <h3>Extracted Text</h3>
-            <p>{extractedText}</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+app.use(express.static(path.join(__dirname, "public")));
 
-export default App;
+app.get("/*splat", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
